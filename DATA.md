@@ -32,7 +32,28 @@ Lite mode (keyword rules, demo phrasebook, no model downloads):
 | **Confident-wrong** (not flagged, but wrong) | **0** | **0** |
 | Deliberately vague comments caught | 4 / 4 | 4 / 4 |
 
-**Reading this honestly:** it never told Noor something wrong with confidence, but in lite mode it flags far
+Full translation mode (real NLLB-200 600M on a laptop CPU, keyword rules for analysis), results in
+[docs/eval-results-nllb.md](docs/eval-results-nllb.md):
+
+| Measure | End to end (all 42) | Non-English (12) |
+|---|---|---|
+| Issue precision / recall on comments it did not flag | 1.00 / 0.95 | 1.00 / 0.86 |
+| Flagged "not sure" for Noor | 15 / 42 (36%) | 2 / 12 (17%) |
+| **Confident-wrong** | **1 (2%)** | **1 (8%)** |
+
+Real translation cuts the flags from 83% to 36%. The **one confident-wrong case** (Dutch, M11): "the coffee
+tasting was great, but the road was **really** bad". The rule expects "road was bad", so the complaint was
+missed, and the praise in the same comment made the analysis confident. Lesson: confidence should be judged
+per claim, not per comment. We did **not** patch the rule on the test set, to avoid gaming the score.
+
+**Translation errors NLLB does not flag** (read by the team, not yet by a native speaker):
+"farm" became *peternakan* (a livestock farm; should be *kebun*), "guide" became *panduan* (a guidebook;
+should be *pemandu*), "coffee tasting" became *percobaan kopi* ("coffee experiment"; should be
+*mencicipi kopi*). NLLB reports every translation as a success, so these reach Noor unflagged. This is why
+fixed text is hand-written, why the original is always shown next to the translation, and why a native-speaker
+check and a small farm-vocabulary glossary are the next steps.
+
+**Reading the lite results honestly:** it never told Noor something wrong with confidence, but in lite mode it flags far
 too much. End to end, most flags are "could not translate", because the lite phrasebook knows only the demo
 sentences. Full mode (NLLB translation) is what removes those flags. The set is small and synthetic: real
 visitor comments, checked by a native Indonesian reader, are the next step.
