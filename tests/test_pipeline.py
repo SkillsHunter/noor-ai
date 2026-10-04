@@ -113,3 +113,16 @@ def test_api_roundtrip():
     assert r3["action"] == "full_text" and "Mencicipi kopi" in r3["sent"]
     assert "NOOR AI" in client.get("/api/digest").json()["text"]
     assert client.get("/api/outbox").json()
+
+
+def test_noor_pages_need_login_when_password_set(monkeypatch):
+    import noor_ai.app as app_module
+    client = TestClient(app_module.app)
+    monkeypatch.setenv("NOOR_ADMIN_PASSWORD", "s3cret")
+    assert client.get("/").status_code == 200
+    assert client.get("/api/languages").status_code == 200
+    for path in ("/noor", "/api/feedback", "/api/outbox", "/api/digest"):
+        assert client.get(path).status_code == 401
+        assert client.get(path, auth=("noor", "wrong")).status_code == 401
+        assert client.get(path, auth=("noor", "s3cret")).status_code == 200
+    assert client.post("/sms/inbound", data={"text": "1"}).status_code == 401

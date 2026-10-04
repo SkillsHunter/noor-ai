@@ -1,0 +1,22 @@
+# One-click deploy on Render: Dashboard -> New -> Blueprint -> pick this repo.
+services:
+  - type: web
+    name: noor-ai
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-lite.txt
+    startCommand: uvicorn noor_ai.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/languages
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: NOOR_TRANSLATOR
+        value: lite
+      - key: NOOR_EXTRACTOR
+        value: rules
+      - key: NOOR_SMS
+        value: console
+      - key: NOOR_ADMIN_USER
+        value: noor
+      - key: NOOR_ADMIN_PASSWORD
+        generateValue: true   # find it under the service's Environment tab

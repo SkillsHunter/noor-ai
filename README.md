@@ -55,6 +55,17 @@ uvicorn noor_ai.app:app --reload
 to Noor in the original with "[belum diterjemahkan]" and flagged. Follow-up questions appear in
 English for de/fr/es visitors, with a note. Full mode removes both limits.
 
+## Deploy (free, lite mode)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SkillsHunter/noor-ai)
+
+`render.yaml` sets up a free Render web service in lite mode. Noor's side (`/noor`, the feedback
+API, the SMS webhook) is behind a login: user `noor`, with a password Render generates
+(service → **Environment** → `NOOR_ADMIN_PASSWORD`). The visitor chat at `/` stays public.
+
+Free-tier limits: the service sleeps after 15 minutes idle (first visit then takes ~1 minute), and
+feedback is kept in memory, so it is lost on every restart or redeploy.
+
 ## Full small-AI mode
 
 ```bash
@@ -115,6 +126,6 @@ kebun? 2 - Buruk*), the visitor's comments translated, and a list of anything fl
 
 - Have someone who reads Bahasa Indonesia check NLLB's output on real visitor comments.
 - Store submissions in a database; this prototype keeps them in memory.
-- Protect `/noor` and `/api/feedback` with a login, since they show all feedback.
+- Set `NOOR_ADMIN_PASSWORD` so `/noor` and the feedback API need a login (on by default with `render.yaml`).
 - Remove names and phone numbers from comments before logging.
 - Use a local Indonesian SMS aggregator if it is cheaper than Twilio for numbers in Indonesia.

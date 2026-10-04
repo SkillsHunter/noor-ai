@@ -12,13 +12,20 @@ POST /api/feedback                finished form -> translated to Indonesian, sum
 GET  /api/feedback                every processed submission (Noor's inbox)
 GET  /api/digest?send=true        weekly summary SMS
 POST /sms/inbound                 SMS gateway webhook: Noor replies 1 (seen), 2 (call me), 3 (full text)
+
+Set NOOR_ADMIN_PASSWORD to protect Noor's side (/noor, reading feedback, digest, outbox,
+replies, SMS webhook) with HTTP Basic auth, user NOOR_ADMIN_USER (default "noor").
+For a gateway webhook use https://noor:<password>@your-host/sms/inbound.
 """
+import os
+import secrets
 from dataclasses import asdict
 from datetime import date
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel, Field
 
 from .i18n import VisitorLocalizer, languages, ui_strings
@@ -32,6 +39,18 @@ app = FastAPI(title="Noor AI")
 noor = NoorAI()
 localizer = VisitorLocalizer(noor.translator)
 replies: list[dict] = []
+basic = HTTPBasic(auto_error=False)
+
+
+def noor_only(creds: HTTPBasicCredentials | None = Depends(basic)):
+    """Basic auth for Noor's pages; open when NOOR_ADMIN_PASSWORD is unset (local dev)."""
+    password = os.getenv("NOOR_ADMIN_PASSWORD")
+    if not password:
+        return
+    user = os.getenv("NOOR_ADMIN_USER", "noor")
+    if not (creds and secrets.compare_digest(creds.username.encode(), user.encode())
+            and secrets.compare_digest(creds.password.encode(), password.encode())):
+        raise HTTPException(401, "Login required", headers={"WWW-Authenticate": 'Basic realm="Noor AI"'})
 
 
 class SubmissionIn(BaseModel):
@@ -49,7 +68,7 @@ def visitor_page():
     return FileResponse(STATIC / "index.html")
 
 
-@app.get("/noor", include_in_schema=False)
+@app.get("/noor", include_in_schema=False, dependencies=[Depends(noor_only)])
 def noor_page():
     return FileResponse(STATIC / "noor.html")
 
@@ -87,29 +106,29 @@ def api_feedback(sub: SubmissionIn):
     return asdict(res)
 
 
-@app.get("/api/feedback")
+@app.get("/api/feedback", dependencies=[Depends(noor_only)])
 def api_all_feedback():
     return [asdict(r) for r in reversed(noor.history)]
 
 
-@app.get("/api/digest")
+@app.get("/api/digest", dependencies=[Depends(noor_only)])
 def api_digest(send: bool = False):
     text = noor.digest()
     return {"text": text, "delivery": noor.gateway.send(noor.s.noor_phone, text) if send else None}
 
 
-@app.get("/api/replies")
+@app.get("/api/replies", dependencies=[Depends(noor_only)])
 def api_replies():
     return replies
 
 
-@app.get("/api/outbox")
+@app.get("/api/outbox", dependencies=[Depends(noor_only)])
 def api_outbox():
     """SMS sent to Noor (console gateway only; real gateways keep their own logs)."""
     return list(reversed(getattr(noor.gateway, "outbox", [])))
 
 
-@app.post("/sms/inbound")
+@app.post("/sms/inbound", dependencies=[Depends(noor_only)])
 async def sms_inbound(request: Request):
     """Point your SMS gateway's incoming-message webhook here."""
     form = dict(await request.form())
