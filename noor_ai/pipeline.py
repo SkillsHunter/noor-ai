@@ -11,8 +11,8 @@ Noor stays the decision-maker: the SMS only reports; unclear answers are
 flagged and still shown to her in translation, never interpreted.
 """
 from collections import Counter
-from dataclasses import dataclass, field
-from datetime import date
+from dataclasses import asdict, dataclass, field
+from datetime import date, timedelta
 from itertools import count
 
 from .config import Settings
@@ -22,6 +22,7 @@ from .langid import detect
 from .questions import QuestionBank, score_of
 from .sms_compose import TEMPLATES, compose, sms_info
 from .sms_gateway import gateway_from
+from .summary import summarise
 from .translate import translator_from
 
 # Core rating category -> issue tag, so a low score counts even without a comment.
@@ -72,6 +73,7 @@ class Result:
     sms_encoding: str = ""
     sms_segments: int = 0
     delivery: dict = field(default_factory=dict)
+    received: str = ""                               # ISO date, for weekly/monthly summaries
 
 
 class NoorAI:
@@ -83,6 +85,8 @@ class NoorAI:
         self.gateway = gateway or gateway_from(self.s)
         self._counter = count(1)
         self.history: list[Result] = []
+        self.decisions: list[dict] = []   # Noor's answers to summary suggestions
+        self.pending = None               # suggestion awaiting her 1=ya / 2=nanti
 
     # -- translation into Noor's language ------------------------------------
     def to_noor(self, text: str, src: str, english: str | None = None) -> str | None:
@@ -99,8 +103,11 @@ class NoorAI:
         return None
 
     # -- per comment ---------------------------------------------------------
-    def analyse_comment(self, text: str, qid: str = "") -> CommentResult:
+    def analyse_comment(self, text: str, qid: str = "", hint: str = "") -> CommentResult:
+        """`hint` is the language the visitor picked in the chat. If detection agrees with it,
+        a lower detection confidence is accepted (short sentences score low on their own)."""
         d = detect(text)
+        lang_sure = d.confidence >= 0.5 or (bool(hint) and d.lang == hint)
         tr = self.translator.translate(text, d.lang, "en") if d.lang not in ("en", "und") else None
         english = tr.text if tr else text
         ok = tr.ok if tr else d.lang != "und"
@@ -108,7 +115,7 @@ class NoorAI:
         indonesian = self.to_noor(text, d.lang, english if ok else None) if d.lang != "und" else None
 
         reason = ""
-        if d.confidence < 0.5:
+        if not lang_sure:
             reason = "language unclear"
         elif not ok or indonesian is None:
             reason = "could not translate"
@@ -161,8 +168,8 @@ class NoorAI:
                 lines.append(f"- \"{c.original}\" ({LANG_NAMES_ID.get(c.lang, c.lang)})")
         return "\n".join(lines)
 
-    def process(self, sub: Submission, send: bool = True) -> Result:
-        comments = [self.analyse_comment(t, qid) for qid, t in self._free_text(sub)]
+    def process(self, sub: Submission, send: bool = True, today: date | None = None) -> Result:
+        comments = [self.analyse_comment(t, qid, sub.lang) for qid, t in self._free_text(sub)]
         usable = [c for c in comments if not c.flagged]
 
         issues = Counter(i["tag"] for c in usable for i in c.extraction["issues"])
@@ -190,9 +197,10 @@ class NoorAI:
         res = Result(n, visitor_lang, overall, sentiment, [t for t, _ in issues.most_common()],
                      [t for t, _ in highs.most_common()], comments, rows, report,
                      [{"id": q.id, "question": q.question, "options": q.options} for q in follow_ups],
-                     text, enc, segs)
+                     text, enc, segs, received=(today or date.today()).isoformat())
         self.history.append(res)          # keep the feedback even if the SMS fails
         if send:
+            self.pending = None           # her next 1/2 answers this SMS, not an older suggestion
             try:
                 res.delivery = self.gateway.send(self.s.noor_phone, text)
             except Exception as e:        # store-and-forward: Noor still sees it in the inbox
@@ -216,22 +224,65 @@ class NoorAI:
             parts.append("Tidak ada komentar tertulis.")
         return "\n".join(parts)
 
-    # -- weekly digest -------------------------------------------------------
-    def digest(self, results: list[Result] | None = None) -> str:
-        results = results if results is not None else self.history
-        issues = Counter(t for r in results for t in r.issues)
-        highs = Counter(t for r in results for t in r.highlights)
-        flagged = sum(c.flagged for r in results for c in r.comments)
-        scores = [r.overall for r in results if r.overall is not None]
-        t = TEMPLATES.get(self.s.noor_lang, TEMPLATES["en"])
-        label = lambda x: t["tags"].get(x, x)
-        avg = f"{sum(scores)/len(scores):.1f}" if scores else "?"
-        lines = [f"NOOR AI ringkasan: {len(results)} tamu, rata-rata {avg}/5"]
-        if issues:
-            lines.append("Masalah utama: " + ", ".join(f"{label(k)} ({v})" for k, v in issues.most_common(2)))
-        if highs:
-            lines.append("Paling disukai: " + label(highs.most_common(1)[0][0]))
-        if flagged:
-            lines.append(f"{flagged} jawaban perlu dicek")
-        lines.append("Balas 1=dibaca")
-        return "\n".join(lines)
+    # -- weekly / monthly summaries ----------------------------------------------
+    def summary(self, period: str = "week", today: date | None = None):
+        return summarise(self.history, period, today, self.decisions)
+
+    def send_summary(self, period: str = "week", today: date | None = None) -> dict:
+        s = self.summary(period, today)
+        self.pending = {"period": period, **asdict(s.suggestions[0])} if s.suggestions else None
+        try:
+            delivery = self.gateway.send(self.s.noor_phone, s.sms)
+        except Exception as e:
+            delivery = {"status": "failed", "error": e.__class__.__name__}
+        return {**asdict(s), "delivery": delivery}
+
+    def decide(self, choice: str, today: date | None = None) -> dict | None:
+        """Noor replied 1 (yes) or 2 (later) to the pending suggestion."""
+        if not self.pending:
+            return None
+        d = {**self.pending, "decision": choice, "date": (today or date.today()).isoformat()}
+        self.decisions.append(d)
+        self.pending = None
+        return d
+
+    def digest(self) -> str:
+        """Kept for older callers: the weekly summary SMS."""
+        return self.summary("week").sms
+
+    # -- demo data -------------------------------------------------------------
+    def seed_demo(self, today: date | None = None) -> int:
+        """SYNTHETIC visits over the last 60 days, so the summaries have something to show.
+        Uses only phrasebook sentences, so it also works in lite mode.
+
+        Last month: signage complaints; Noor said yes to a sign 30 days ago.
+        This month: fewer signage complaints, many visitors want to buy coffee.
+        """
+        today = today or date.today()
+        visits = [  # (days ago, overall rating, comments)
+            (55, "3 - Okay", ["There was no sign on the road."]),
+            (50, "3 - Okay", ["Kein Schild an der Straße. Wir haben uns verfahren."]),
+            (44, "4 - Good", ["Die Farm war fantastisch, aber der Eingang war schwer zu finden."]),
+            (38, "4 - Good", ["The farm was amazing, but the entrance was difficult to find."]),
+            (34, "5 - Excellent", ["The coffee tasting was the best part!"]),
+            (26, "5 - Excellent", ["La dégustation de café était le meilleur moment !"]),
+            (20, "4 - Good", ["Wir hätten gern Kaffee gekauft, aber es gab keinen zu kaufen."]),
+            (12, "5 - Excellent", ["The coffee tasting was the best part!",
+                                   "Wir hätten gern Kaffee gekauft, aber es gab keinen zu kaufen."]),
+            (6, "4 - Good", ["Il n'y avait pas de toilettes et pas d'ombre."]),
+            (5, "4 - Good", ["Wir hätten gern Kaffee gekauft, aber es gab keinen zu kaufen."]),
+            (4, "5 - Excellent", ["El café estaba delicioso, pero el camino era resbaladizo."]),
+            (2, "4 - Good", ["Wir hätten gern Kaffee gekauft, aber es gab keinen zu kaufen."]),
+        ]
+        with_overall = self.bank.overall_id
+        for ago, rating, comments in visits:
+            answers = {with_overall: rating} if with_overall else {}
+            lang = detect(comments[0]).lang
+            self.process(Submission(answers=answers, comments=comments, guests=2, visitor_id="demo", lang=lang),
+                         send=False, today=today - timedelta(days=ago))
+        if not any(d["tag"] == "signage" for d in self.decisions):
+            self.decisions.append({"period": "month", "kind": "fix", "tag": "signage", "count": 4, "visitors": 5,
+                                   "text_id": "Pasang papan petunjuk di jalan utama?",
+                                   "text_en": "Put up a sign at the main road?", "decision": "yes",
+                                   "date": (today - timedelta(days=30)).isoformat()})
+        return len(visits)

@@ -10,17 +10,26 @@ GET  /api/core?lang=de            UI text + core questions in the visitor's lang
 POST /api/follow-ups              answers + comments so far -> next questions, in the visitor's language
 POST /api/feedback                finished form -> translated to Indonesian, summary SMS sent to Noor
 GET  /api/feedback                every processed submission (Noor's inbox)
-GET  /api/digest?send=true        weekly summary SMS
+GET  /api/summary?period=week|month&send=true   weekly / monthly summary with a suggestion
+GET  /api/decisions               Noor's 1=ya / 2=nanti answers to suggestions
+POST /api/demo/seed               synthetic visits for the demo (only when NOOR_DEMO=1)
+GET  /api/digest?send=true        weekly summary SMS (older name)
 POST /sms/inbound                 SMS gateway webhook: Noor replies 1 (seen), 2 (call me), 3 (full text)
 
 Set NOOR_ADMIN_PASSWORD to protect Noor's side (/noor, reading feedback, digest, outbox,
 replies, SMS webhook) with HTTP Basic auth, user NOOR_ADMIN_USER (default "noor").
 For a gateway webhook use https://noor:<password>@your-host/sms/inbound.
+
+NOOR_SCHEDULE=1 sends the weekly summary on Sunday 18:00 and the monthly one on the 1st at 08:00
+(local time, NOOR_TZ_OFFSET hours from UTC, default 7 = WIB). On hosts that sleep, call
+/api/summary?period=week&send=true from a cron job instead.
 """
+import asyncio
+import contextlib
 import os
 import secrets
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -35,7 +44,28 @@ from .sms_gateway import parse_reply, reply_feedback_no
 STATIC = Path(__file__).resolve().parent / "static"
 AUTO_FILLED = {"Q001"}  # visit date is filled in automatically
 
-app = FastAPI(title="Noor AI")
+async def _scheduler():
+    sent = set()
+    offset = timedelta(hours=float(os.getenv("NOOR_TZ_OFFSET", "7")))
+    while True:
+        now = datetime.now(timezone.utc) + offset
+        week, month = ("week", *now.isocalendar()[:2]), ("month", now.year, now.month)
+        if now.weekday() == 6 and now.hour >= 18 and week not in sent:
+            noor.send_summary("week"); sent.add(week)
+        if now.day == 1 and now.hour >= 8 and month not in sent:
+            noor.send_summary("month"); sent.add(month)
+        await asyncio.sleep(600)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_app):
+    task = asyncio.create_task(_scheduler()) if os.getenv("NOOR_SCHEDULE") == "1" else None
+    yield
+    if task:
+        task.cancel()
+
+
+app = FastAPI(title="Noor AI", lifespan=lifespan)
 noor = NoorAI()
 localizer = VisitorLocalizer(noor.translator)
 replies: list[dict] = []
@@ -91,7 +121,7 @@ def api_follow_ups(sub: SubmissionIn):
     for c in sub.comments + [v for k, v in sub.answers.items()
                              if noor.bank.by_id.get(k) and noor.bank.by_id[k].response_type == "open_text"]:
         if isinstance(c, str) and c.strip():
-            r = noor.analyse_comment(c)
+            r = noor.analyse_comment(c, hint=sub.lang)
             if not r.flagged:
                 tags += [i["tag"] for i in r.extraction["issues"]]
     qs = noor.bank.plan_follow_ups(sub.answers, tags, noor.s.max_follow_ups)
@@ -113,8 +143,29 @@ def api_all_feedback():
 
 @app.get("/api/digest", dependencies=[Depends(noor_only)])
 def api_digest(send: bool = False):
-    text = noor.digest()
-    return {"text": text, "delivery": noor.gateway.send(noor.s.noor_phone, text) if send else None}
+    if send:
+        s = noor.send_summary("week")
+        return {"text": s["sms"], "delivery": s["delivery"]}
+    return {"text": noor.digest(), "delivery": None}
+
+
+@app.get("/api/summary", dependencies=[Depends(noor_only)])
+def api_summary(period: str = "week", send: bool = False):
+    if period not in ("week", "month"):
+        raise HTTPException(400, "period must be week or month")
+    return noor.send_summary(period) if send else asdict(noor.summary(period))
+
+
+@app.get("/api/decisions", dependencies=[Depends(noor_only)])
+def api_decisions():
+    return {"pending": noor.pending, "decisions": list(reversed(noor.decisions))}
+
+
+@app.post("/api/demo/seed", dependencies=[Depends(noor_only)])
+def api_demo_seed():
+    if os.getenv("NOOR_DEMO") != "1":
+        raise HTTPException(404, "Demo data is off (set NOOR_DEMO=1)")
+    return {"added": noor.seed_demo()}
 
 
 @app.get("/api/replies", dependencies=[Depends(noor_only)])
@@ -138,7 +189,10 @@ async def sms_inbound(request: Request):
     entry = {"from": sender, "text": text, "action": action}
     if hasattr(noor.gateway, "outbox"):           # demo: show Noor's reply in the phone view
         noor.gateway.outbox.append({"from": "noor", "text": text})
-    if action == "full_text":
+    if noor.pending and action in ("seen", "call_requested"):   # answering a summary suggestion
+        entry["action"] = "decision"
+        entry["decision"] = noor.decide("yes" if action == "seen" else "later")
+    elif action == "full_text":
         full = noor.full_text_sms(reply_feedback_no(text))
         entry["sent"] = full
         noor.gateway.send(noor.s.noor_phone, full)

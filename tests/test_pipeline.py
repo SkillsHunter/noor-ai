@@ -136,3 +136,59 @@ def test_feedback_kept_when_sms_fails():
     r = noor.process(Submission(answers={}, comments=["The toilets were dirty."]))
     assert r.delivery["status"] == "failed" and noor.history == [r]
     assert "tidak ditemukan" in noor.full_text_sms(99)
+
+
+# ---------------------------------------------------------------- summaries
+from datetime import date, timedelta
+
+from noor_ai.summary import MIN_VISITORS
+
+
+def test_summaries_suggest_from_repeated_feedback_and_close_the_loop():
+    noor, today = make(), date(2026, 10, 4)
+    noor.seed_demo(today)
+    week, month = noor.summary("week", today), noor.summary("month", today)
+    assert week.visitors == 4 and month.visitors == 7 and month.prev_visitors == 5
+    assert week.suggestions[0].tag == "coffee_sales" and week.suggestions[0].count == 2
+    assert "Saran: Jual kopi" in week.sms and "1=ya 2=nanti" in week.sms
+    assert month.outcomes == [{"tag": "signage", "decided": "2026-09-04", "before": 4, "after": 0}]
+    assert "4->0" in month.sms and not week.outcomes
+    assert week.sms_segments <= 2 and month.sms_segments <= 3
+
+
+def test_no_suggestion_without_enough_visitors():
+    noor, today = make(), date(2026, 10, 4)
+    for _ in range(MIN_VISITORS - 1):
+        noor.process(Submission(answers={}, comments=["Kein Schild an der Straße. Wir haben uns verfahren."], lang="de"),
+                     send=False, today=today)
+    s = noor.summary("week", today)
+    assert not s.enough_data and not s.suggestions and "data kurang" in s.sms
+
+
+def test_short_comment_in_chosen_language_is_not_flagged_as_unclear():
+    assert make().analyse_comment("The coffee tasting was the best part!", hint="en").flag_reason != "language unclear"
+
+
+def test_noor_answers_a_suggestion_by_sms(monkeypatch):
+    import noor_ai.app as app_module
+    monkeypatch.delenv("NOOR_ADMIN_PASSWORD", raising=False)
+    monkeypatch.setenv("NOOR_DEMO", "1")
+    monkeypatch.setattr(app_module, "noor", make())
+    client = TestClient(app_module.app)
+    assert client.post("/api/demo/seed").json()["added"] > 0
+    s = client.get("/api/summary?period=week&send=true").json()
+    assert s["suggestions"] and client.get("/api/decisions").json()["pending"]["tag"] == s["suggestions"][0]["tag"]
+    r = client.post("/sms/inbound", data={"from": "noor", "text": "1"}).json()
+    assert r["action"] == "decision" and r["decision"]["decision"] == "yes"
+    assert client.get("/api/decisions").json()["pending"] is None
+    # after a per-visit SMS, "1" means "seen" again, not a decision
+    client.post("/api/feedback", json={"answers": {}, "comments": ["The toilets were dirty."], "lang": "en"})
+    assert client.post("/sms/inbound", data={"from": "noor", "text": "1"}).json()["action"] == "seen"
+    assert client.get("/api/summary?period=year").status_code == 400
+
+
+def test_demo_seed_is_off_by_default(monkeypatch):
+    import noor_ai.app as app_module
+    monkeypatch.delenv("NOOR_ADMIN_PASSWORD", raising=False)
+    monkeypatch.delenv("NOOR_DEMO", raising=False)
+    assert TestClient(app_module.app).post("/api/demo/seed").status_code == 404

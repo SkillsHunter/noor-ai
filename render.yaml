@@ -16,6 +16,10 @@ services:
         value: rules
       - key: NOOR_SMS
         value: console
+      - key: NOOR_DEMO
+        value: "1"            # "Isi data contoh" button: synthetic visits for judges
+      - key: NOOR_SCHEDULE
+        value: "1"            # weekly (Sun 18:00) and monthly (1st, 08:00) summaries, WIB
       - key: NOOR_ADMIN_USER
         value: noor
       - key: NOOR_ADMIN_PASSWORD

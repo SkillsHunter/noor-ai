@@ -36,6 +36,11 @@
   .mine{background:var(--green);color:var(--white);align-self:flex-end;border-radius:14px;padding:8px 12px;font-size:13px}
   .keys{display:flex;gap:8px;margin-top:10px}
   .keys button{flex:1;background:var(--white);color:var(--navy)}
+  .summary{border-left:6px solid var(--green)}
+  .summary pre{margin:0;font:13px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;background:var(--bg);border-radius:12px;padding:10px 12px}
+  .sugg{display:flex;flex-direction:column;gap:6px;font-size:14px}
+  .sugg div{background:var(--mint);border-radius:12px;padding:8px 12px}
+  .sugg small,.note{color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -47,16 +52,20 @@
     </div>
     <div class="bar">
       <button type="button" id="refresh" class="alt">Muat ulang</button>
-      <button type="button" id="digest">Kirim ringkasan mingguan</button>
+      <button type="button" data-period="week">Ringkasan mingguan</button>
+      <button type="button" data-period="month">Ringkasan bulanan</button>
+      <button type="button" id="seed" class="alt">Isi data contoh</button>
     </div>
+    <section id="summary" class="card summary" hidden aria-live="polite"></section>
+    <section id="decisions" class="card" hidden></section>
     <div id="list"><p class="empty">Belum ada masukan.</p></div>
   </main>
   <aside aria-label="Simulasi HP Noor">
     <div class="phone">
       <div class="screen" id="screen"><h3>SMS · HP NOOR</h3></div>
       <div class="keys" aria-label="Balasan Noor">
-        <button type="button" data-k="1">1 dibaca</button>
-        <button type="button" data-k="2">2 telepon</button>
+        <button type="button" data-k="1">1 dibaca/ya</button>
+        <button type="button" data-k="2">2 telepon/nanti</button>
         <button type="button" data-k="3">3 lengkap</button>
       </div>
     </div>
@@ -73,7 +82,7 @@ async function load() {
   if (!items.length) list.appendChild(el("p", "empty", "Belum ada masukan."));
   for (const r of items) {
     const c = el("article", "card");
-    c.appendChild(el("h2", "", `Masukan #${r.feedback_no} · nilai ${r.overall ?? "?"}/5`));
+    c.appendChild(el("h2", "", `Masukan #${r.feedback_no} · ${r.received} · nilai ${r.overall ?? "?"}/5${r.visitor_id === "demo" ? " · contoh" : ""}`));
     const tags = el("div", "tags");
     r.issues.forEach(t => tags.appendChild(el("span", "tag issue", "Masalah: " + (TAG[t] || t))));
     r.highlights.forEach(t => tags.appendChild(el("span", "tag high", "Disukai: " + (TAG[t] || t))));
@@ -97,10 +106,47 @@ async function load() {
   screen.innerHTML = "<h3>SMS · HP NOOR</h3>";
   [...outbox].reverse().forEach(m => screen.appendChild(el("div", m.from === "noor" ? "mine" : "sms", m.text)));
   screen.scrollTop = screen.scrollHeight;
+  loadDecisions();
 }
 
 document.getElementById("refresh").addEventListener("click", load);
-document.getElementById("digest").addEventListener("click", async () => { await fetch("/api/digest?send=true"); load(); });
+const PERIOD = { week: "minggu ini", month: "30 hari terakhir" };
+function showSummary(s) {
+  const box = document.getElementById("summary");
+  box.hidden = false; box.innerHTML = "";
+  box.appendChild(el("h2", "", `Ringkasan ${PERIOD[s.period]} (${s.start} s/d ${s.end}) · terkirim ke HP Noor`));
+  box.appendChild(el("pre", "", s.sms));
+  box.appendChild(el("p", "note", `${s.sms_segments} SMS · ${s.visitors} tamu`));
+  const list = el("div", "sugg");
+  if (!s.enough_data) list.appendChild(el("div", "", "Belum ada saran: data kurang dari 3 tamu. AI tidak menebak."));
+  s.suggestions.forEach((x, i) => {
+    const d = el("div");
+    d.appendChild(el("b", "", (i === 0 ? "Saran utama: " : "Saran lain: ") + x.text_id));
+    d.appendChild(el("small", "", ` Bukti: ${x.count} dari ${x.visitors} tamu ${x.kind === "fix" ? "mengeluhkan" : "menyukai"} ini.`));
+    list.appendChild(d);
+  });
+  (s.outcomes || []).forEach(o => list.appendChild(el("div", "", `Hasil keputusan ${o.decided}: ${TAG[o.tag] || o.tag}, keluhan ${o.before} -> ${o.after}`)));
+  box.appendChild(list);
+}
+async function loadDecisions() {
+  const r = await fetch("/api/decisions"); if (!r.ok) return;
+  const { pending, decisions } = await r.json();
+  const box = document.getElementById("decisions");
+  box.hidden = !pending && !decisions.length; box.innerHTML = "";
+  box.appendChild(el("h2", "", "Keputusan Noor"));
+  if (pending) box.appendChild(el("p", "note", `Menunggu jawaban: ${pending.text_id} (balas 1=ya 2=nanti)`));
+  decisions.forEach(d => box.appendChild(el("p", "", `${d.date}: ${d.text_id} → ${d.decision === "yes" ? "YA" : "NANTI"}`)));
+}
+document.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", async () => {
+  const r = await fetch(`/api/summary?period=${b.dataset.period}&send=true`);
+  if (r.ok) showSummary(await r.json());
+  load();
+}));
+document.getElementById("seed").addEventListener("click", async () => {
+  const r = await fetch("/api/demo/seed", { method: "POST" });
+  if (!r.ok) alert("Data contoh tidak aktif di server ini (NOOR_DEMO=1).");
+  load();
+});
 document.querySelectorAll(".keys button").forEach(b => b.addEventListener("click", async () => {
   const body = new URLSearchParams({ from: "noor", text: b.dataset.k });
   await fetch("/sms/inbound", { method: "POST", body });

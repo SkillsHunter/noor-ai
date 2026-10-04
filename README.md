@@ -25,6 +25,28 @@ Visitor chat (any language)
                                       Noor replies: 1 = dibaca, 2 = telepon, 3 = teks lengkap
 ```
 
+## Weekly and monthly summaries for Noor
+
+The per-visit SMS tells Noor what one visitor said. The **weekly** (Sunday 18:00) and **monthly** (1st of the
+month, 08:00) summaries read across all visitors and turn repeated feedback into one suggestion she can act on:
+
+```
+NOOR AI bulan ini: 7 tamu (lalu 5), nilai 4.4/5 (lalu 3.8)
+Masalah: ingin beli kopi 4 (lalu 0), toilet/teduh/air 1 (lalu 0)
+Disukai: kopi (3/7)
+Hasil: petunjuk jalan/papan nama 4->0 keluhan, membaik
+Saran: Jual kopi bubuk/biji di kebun?
+Balas 1=ya 2=nanti
+```
+
+- **Suggestions** come from a fixed, hand-written list (`noor_ai/summary.py`), triggered only when an issue is
+  raised by at least 2 visitors and 25% of the period's visitors (or a highlight by 50%). Fewer than 3
+  visitors: "not enough data", no suggestion.
+- **Noor decides:** she replies 1 (yes) or 2 (later). Her decisions are logged.
+- **The loop closes:** the monthly summary reports whether a complaint dropped after she said yes
+  (above: a road sign, signage complaints 4 -> 0).
+- In the inbox: **Ringkasan mingguan / bulanan** buttons, and **Isi data contoh** loads synthetic demo visits.
+
 ## What's in the box
 
 | Part | File | Notes |
@@ -38,6 +60,8 @@ Visitor chat (any language)
 | Indonesian for Noor | `noor_ai/i18n.py`, `data/question_bank_id.json` | All 100 questions and every option, hand-written |
 | Visitor languages | `data/ui_i18n.json` | Chat text plus core questions in en/id/de/fr/es; others machine-translated |
 | SMS | `noor_ai/sms_compose.py`, `noor_ai/sms_gateway.py` | One-segment summary; Twilio, Africa's Talking or console |
+| Weekly / monthly summaries | `noor_ai/summary.py` | Cross-visitor trends, fixed-list suggestions, Noor's decisions |
+| Evaluation | `eval.py`, `data/eval/comments.jsonl` | 42 labelled synthetic comments; see `DATA.md` |
 | API | `noor_ai/app.py` | FastAPI, docs at `/docs` |
 
 ## Try it (lite mode, no model downloads)
@@ -51,6 +75,7 @@ uvicorn noor_ai.app:app --reload
 - Noor's inbox (Bahasa Indonesia): http://localhost:8000/noor
 - Command-line demo: `python demo.py`
 - Tests: `pytest -q`
+- Evaluation: `python eval.py` (add `--translator nllb --extractor ollama` for full mode)
 
 **Lite-mode limits:** the demo phrasebook only translates the sample sentences (for example
 *"Die Farm war fantastisch, aber der Eingang war schwer zu finden."*). Other free text is shown
@@ -93,6 +118,9 @@ at a farm's volume. If a model is unavailable, the pipeline falls back and flags
 | `NOOR_SMS` | `console` | `console`, `twilio` or `africastalking` |
 | `NOOR_CONFIDENCE_THRESHOLD` | `0.6` | Below this, a comment is flagged rather than interpreted |
 | `NOOR_MAX_FOLLOW_UPS` | `6` | Most follow-up questions per visitor |
+| `NOOR_SCHEDULE` | off | `1` sends the weekly and monthly summaries automatically |
+| `NOOR_TZ_OFFSET` | `7` | Hours from UTC for the schedule (7 = WIB) |
+| `NOOR_DEMO` | off | `1` enables the "Isi data contoh" synthetic demo data button |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |  | Twilio credentials |
 | `AT_USERNAME`, `AT_API_KEY`, `AT_SENDER_ID` | `sandbox` | Africa's Talking credentials |
 

@@ -1,5 +1,42 @@
 # Data, Small AI fit and Responsible AI
 
+## The problem is real (cited evidence)
+
+The brief's Ondera highlands are fictional. We use **Indonesia** as the stand-in country, because
+Noor's national language in our build is Bahasa Indonesia.
+
+| Evidence | Figure | Source (year) |
+|---|---|---|
+| Foreign visitors Noor's farm could serve | **13.9 million** international arrivals to Indonesia in 2024, up about 19% on 2023 | BPS Statistics Indonesia, reported by Jakarta Globe (2025) |
+| Tourism is a jobs engine | **25.01 million** tourism workers in Indonesia in 2024, up 2.5% from 24.41 million in 2023 | Cabinet Secretariat of the Republic of Indonesia, setkab.go.id (2025) |
+| Each visitor dollar matters | Every US$1 million of travel and tourism spending in Indonesia supports **about 200 jobs** (67 direct); **58%** of almost 7 million hotel and restaurant workers are women | World Bank Results brief "Visitors Welcome", citing WTTC (April 2025) |
+| Design for a basic phone, not a smartphone | In low- and middle-income countries women are **8%** less likely than men to own a mobile phone and **14%** less likely to own a smartphone; in East Asia and Pacific 92% of women own a mobile but only 80% use mobile internet | GSMA Mobile Gender Gap Report 2025 (2024 data) |
+| Small operators run on instinct | Informal operators lack the digital listing and skills to learn from customers; Noor gets 6-7 visitors a month by word of mouth | Challenge brief, Annex C (Jordan evidence) (2026) |
+
+**What we do not have:** no figures for the specific highland district, and no survey of how many farm-tour
+operators collect feedback today. These would be the first things to measure in a pilot.
+
+## Evaluation: does it work?
+
+`python eval.py` scores the pipeline on `data/eval/comments.jsonl`: 42 **synthetic** visitor comments
+(30 English, 12 in German, French, Spanish, Indonesian, Dutch and Japanese), written and labelled by the team
+before scoring. The rules were **not** tuned on this set afterwards. Full results:
+[docs/eval-results-lite.md](docs/eval-results-lite.md).
+
+Lite mode (keyword rules, demo phrasebook, no model downloads):
+
+| Measure | Analysis step (30 English) | End to end (all 42) |
+|---|---|---|
+| Issue precision / recall on comments it did not flag | 1.00 / 1.00 | 1.00 / 1.00 |
+| Flagged "not sure" for Noor | 13 / 30 (43%) | 35 / 42 (83%) |
+| **Confident-wrong** (not flagged, but wrong) | **0** | **0** |
+| Deliberately vague comments caught | 4 / 4 | 4 / 4 |
+
+**Reading this honestly:** it never told Noor something wrong with confidence, but in lite mode it flags far
+too much. End to end, most flags are "could not translate", because the lite phrasebook knows only the demo
+sentences. Full mode (NLLB translation) is what removes those flags. The set is small and synthetic: real
+visitor comments, checked by a native Indonesian reader, are the next step.
+
 ## Data we build with
 
 | Dataset / model | Source | Licence | Size | Used for |
@@ -36,7 +73,11 @@
 
 ## Responsible AI
 
-- **Human in the loop:** the AI only reports. Noor decides. Nothing is ever sent to a visitor automatically.
+- **Human in the loop:** the AI only reports and suggests. Noor decides (reply 1 = yes, 2 = later), and her
+  decisions are logged. Nothing is ever sent to a visitor automatically.
+- **Summaries cannot invent advice:** weekly and monthly suggestions come from a fixed, hand-written list, show
+  their evidence ("4 of 7 visitors"), and need at least 3 visitors in the period. Otherwise the summary says
+  "not enough data" instead of guessing.
 - **Fail-safe ("not sure, ask a person"):** comments are flagged and shown word for word whenever the
   language is unclear (<0.5), translation fails, or extraction confidence is <0.6.
 - **No hallucination in the SMS:** built from fixed templates and a fixed tag list; it cannot invent content.

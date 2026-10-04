@@ -1,0 +1,42 @@
+{"id": "E01", "lang": "en", "text": "We drove past the farm twice because there was no sign on the main road.", "issues": ["signage"], "highlights": [], "vague": false}
+{"id": "E02", "lang": "en", "text": "The coffee tasting was the highlight of our trip, absolutely delicious.", "issues": [], "highlights": ["coffee"], "vague": false}
+{"id": "E03", "lang": "en", "text": "Noor and her family were so warm and welcoming.", "issues": [], "highlights": ["hospitality"], "vague": false}
+{"id": "E04", "lang": "en", "text": "There was nowhere to sit in the shade and no drinking water.", "issues": ["facilities"], "highlights": [], "vague": false}
+{"id": "E05", "lang": "en", "text": "The path down to the river was slippery and my mother almost fell.", "issues": ["safety"], "highlights": [], "vague": false}
+{"id": "E06", "lang": "en", "text": "We wanted to buy a bag of beans to take home but there was nothing for sale.", "issues": ["coffee_sales"], "highlights": [], "vague": false}
+{"id": "E07", "lang": "en", "text": "The views over the valley were stunning.", "issues": [], "highlights": ["scenery"], "vague": false}
+{"id": "E08", "lang": "en", "text": "It took three days to get a reply to our booking message.", "issues": ["reply_time"], "highlights": [], "vague": false}
+{"id": "E09", "lang": "en", "text": "The tour felt rushed, we only had twenty minutes in the plantation.", "issues": ["tour"], "highlights": [], "vague": false}
+{"id": "E10", "lang": "en", "text": "They only accepted cash and there is no ATM nearby.", "issues": ["payment"], "highlights": [], "vague": false}
+{"id": "E11", "lang": "en", "text": "The price was fair for what we got.", "issues": [], "highlights": [], "vague": false}
+{"id": "E12", "lang": "en", "text": "The tour was too expensive for a family of five.", "issues": ["price"], "highlights": [], "vague": false}
+{"id": "E13", "lang": "en", "text": "Our guide spoke no English so we missed most of the explanation.", "issues": ["language"], "highlights": [], "vague": false}
+{"id": "E14", "lang": "en", "text": "The road up the hill was full of potholes, our car struggled.", "issues": ["access_road"], "highlights": [], "vague": false}
+{"id": "E15", "lang": "en", "text": "Lunch was delicious, especially the fried bananas.", "issues": [], "highlights": ["food"], "vague": false}
+{"id": "E16", "lang": "en", "text": "Loved the walk through the coffee trees, very interesting explanation of the harvest.", "issues": [], "highlights": ["tour"], "vague": false}
+{"id": "E17", "lang": "en", "text": "The toilet was dirty and had no water.", "issues": ["facilities"], "highlights": [], "vague": false}
+{"id": "E18", "lang": "en", "text": "We got lost at the village turn-off, Google Maps sent us the wrong way.", "issues": ["signage"], "highlights": [], "vague": false}
+{"id": "E19", "lang": "en", "text": "Great coffee but the entrance was really hard to find.", "issues": ["signage"], "highlights": ["coffee"], "vague": false}
+{"id": "E20", "lang": "en", "text": "Booking was confusing, we didn't know if our date was confirmed.", "issues": ["booking"], "highlights": [], "vague": false}
+{"id": "E21", "lang": "en", "text": "My father uses a wheelchair and could not get to the drying area.", "issues": ["accessibility"], "highlights": [], "vague": false}
+{"id": "E22", "lang": "en", "text": "The host was a bit rude when we arrived late.", "issues": ["hospitality"], "highlights": [], "vague": false}
+{"id": "E23", "lang": "en", "text": "No complaints, everything was perfect.", "issues": [], "highlights": [], "vague": false}
+{"id": "E24", "lang": "en", "text": "The kids were bored after an hour, nothing for them to do.", "issues": ["tour"], "highlights": [], "vague": false}
+{"id": "E25", "lang": "en", "text": "Would have bought ground coffee if they had sold any.", "issues": ["coffee_sales"], "highlights": [], "vague": false}
+{"id": "E26", "lang": "en", "text": "Beautiful landscape and the best cup of coffee I have ever had.", "issues": [], "highlights": ["scenery", "coffee"], "vague": false}
+{"id": "E27", "lang": "en", "text": "It was okay, I guess.", "issues": [], "highlights": [], "vague": true}
+{"id": "E28", "lang": "en", "text": "Hmm, that thing near the house was weird...", "issues": [], "highlights": [], "vague": true}
+{"id": "E29", "lang": "en", "text": "Kind of nice but sort of not what we expected.", "issues": [], "highlights": [], "vague": true}
+{"id": "E30", "lang": "en", "text": "meh", "issues": [], "highlights": [], "vague": true}
+{"id": "M01", "lang": "de", "text": "Die Farm war fantastisch, aber der Eingang war schwer zu finden.", "issues": ["signage"], "highlights": ["tour"], "vague": false}
+{"id": "M02", "lang": "de", "text": "Kein Schild an der Straße. Wir haben uns verfahren.", "issues": ["signage"], "highlights": [], "vague": false}
+{"id": "M03", "lang": "de", "text": "Wir hätten gern Kaffee gekauft, aber es gab keinen zu kaufen.", "issues": ["coffee_sales"], "highlights": [], "vague": false}
+{"id": "M04", "lang": "fr", "text": "La dégustation de café était le meilleur moment !", "issues": [], "highlights": ["coffee"], "vague": false}
+{"id": "M05", "lang": "fr", "text": "Il n'y avait pas de toilettes et pas d'ombre.", "issues": ["facilities"], "highlights": [], "vague": false}
+{"id": "M06", "lang": "es", "text": "El café estaba delicioso, pero el camino era resbaladizo.", "issues": ["safety"], "highlights": ["coffee"], "vague": false}
+{"id": "M07", "lang": "id", "text": "Jalannya licin setelah hujan.", "issues": ["safety"], "highlights": [], "vague": false}
+{"id": "M08", "lang": "de", "text": "Die Aussicht war wunderschön und Noor war sehr herzlich.", "issues": [], "highlights": ["scenery", "hospitality"], "vague": false}
+{"id": "M09", "lang": "fr", "text": "Le guide ne parlait pas anglais, nous n'avons rien compris.", "issues": ["language"], "highlights": [], "vague": false}
+{"id": "M10", "lang": "es", "text": "No había dónde comprar café para llevar.", "issues": ["coffee_sales"], "highlights": [], "vague": false}
+{"id": "M11", "lang": "nl", "text": "De koffieproeverij was geweldig, maar de weg was erg slecht.", "issues": ["access_road"], "highlights": ["coffee"], "vague": false}
+{"id": "M12", "lang": "ja", "text": "コーヒーはとても美味しかったです。", "issues": [], "highlights": ["coffee"], "vague": false}
