@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kotak Masukan Noor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F6F8EF;--mint:#E4EFD9;--mint2:#D3E6C3;--navy:#15284A;--green:#3F7A2F;--ink:#2A3445;--white:#FDFEFB;--muted:#5D6878;--warn:#FBEBC8;--warnInk:#7A5208;--bad:#F9DCD5;--badInk:#A3361F}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 16px;display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+  main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px}
+  h1{font-size:30px;margin:0;color:var(--navy)}
+  .sub{color:var(--muted);margin:4px 0 0}
+  .bar{display:flex;gap:10px;flex-wrap:wrap}
+  button{font:700 14px inherit;border-radius:14px;border:none;padding:10px 16px;min-height:44px;cursor:pointer;background:var(--green);color:var(--white)}
+  button.alt{background:var(--white);color:var(--navy);border:2px solid var(--mint2)}
+  button:focus-visible{outline:3px solid #9CC58A;outline-offset:2px}
+  .card{background:var(--white);border-radius:20px;padding:18px 20px;box-shadow:0 6px 20px rgba(21,40,74,.06);display:flex;flex-direction:column;gap:10px}
+  .card h2{margin:0;font-size:18px;color:var(--navy)}
+  .tags{display:flex;gap:6px;flex-wrap:wrap}
+  .tag{font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px}
+  .issue{background:var(--bad);color:var(--badInk)} .high{background:var(--mint);color:var(--green)} .flag{background:var(--warn);color:var(--warnInk)}
+  .qa{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;font-size:14px}
+  .qa div{border-top:1px solid #EEF1E8;padding-top:6px}
+  .qa b{display:block;color:var(--navy);font-weight:600}
+  .orig{font-size:12px;color:var(--muted)}
+  .empty{color:var(--muted);text-align:center;padding:40px}
+  aside{flex:1 1 300px;max-width:340px}
+  .phone{background:var(--navy);border-radius:40px;padding:14px;position:sticky;top:16px}
+  .screen{background:#EEF2E8;border-radius:30px;min-height:540px;max-height:75vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+  .screen h3{font-size:12px;letter-spacing:.08em;color:var(--green);margin:4px 0}
+  .sms{background:var(--white);border-radius:14px;padding:10px 12px;font:13px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap}
+  .mine{background:var(--green);color:var(--white);align-self:flex-end;border-radius:14px;padding:8px 12px;font-size:13px}
+  .keys{display:flex;gap:8px;margin-top:10px}
+  .keys button{flex:1;background:var(--white);color:var(--navy)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+    <div>
+      <h1>Kotak Masukan Noor</h1>
+      <p class="sub">Semua masukan pengunjung, sudah diterjemahkan ke Bahasa Indonesia.</p>
+    </div>
+    <div class="bar">
+      <button type="button" id="refresh" class="alt">Muat ulang</button>
+      <button type="button" id="digest">Kirim ringkasan mingguan</button>
+    </div>
+    <div id="list"><p class="empty">Belum ada masukan.</p></div>
+  </main>
+  <aside aria-label="Simulasi HP Noor">
+    <div class="phone">
+      <div class="screen" id="screen"><h3>SMS · HP NOOR</h3></div>
+      <div class="keys" aria-label="Balasan Noor">
+        <button type="button" data-k="1">1 dibaca</button>
+        <button type="button" data-k="2">2 telepon</button>
+        <button type="button" data-k="3">3 lengkap</button>
+      </div>
+    </div>
+  </aside>
+</div>
+<script>
+const TAG = {signage:"petunjuk jalan",access_road:"jalan ke kebun",booking:"pemesanan",reply_time:"balasan lambat",facilities:"fasilitas",price:"harga",payment:"pembayaran",language:"bahasa",safety:"keamanan",accessibility:"akses",tour:"tur",coffee:"kopi",coffee_sales:"ingin beli kopi",food:"makanan",hospitality:"keramahan",scenery:"pemandangan"};
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+async function load() {
+  const [items, outbox] = await Promise.all([fetch("/api/feedback").then(r => r.json()), fetch("/api/outbox").then(r => r.json())]);
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  if (!items.length) list.appendChild(el("p", "empty", "Belum ada masukan."));
+  for (const r of items) {
+    const c = el("article", "card");
+    c.appendChild(el("h2", "", `Masukan #${r.feedback_no} · nilai ${r.overall ?? "?"}/5`));
+    const tags = el("div", "tags");
+    r.issues.forEach(t => tags.appendChild(el("span", "tag issue", "Masalah: " + (TAG[t] || t))));
+    r.highlights.forEach(t => tags.appendChild(el("span", "tag high", "Disukai: " + (TAG[t] || t))));
+    const nf = r.comments.filter(x => x.flagged).length;
+    if (nf) tags.appendChild(el("span", "tag flag", `${nf} perlu dicek`));
+    c.appendChild(tags);
+    const qa = el("div", "qa");
+    for (const a of r.answers_id) {
+      const d = el("div"); d.appendChild(el("b", "", a.pertanyaan)); d.appendChild(document.createTextNode(a.jawaban)); qa.appendChild(d);
+    }
+    for (const m of r.comments.filter(x => !x.qid)) {
+      const d = el("div"); d.appendChild(el("b", "", "Komentar pengunjung"));
+      d.appendChild(document.createTextNode(m.indonesian || "[belum diterjemahkan]"));
+      d.appendChild(el("div", "orig", `Asli (${m.lang}): ${m.original}${m.flagged ? " · AI tidak yakin: " + m.flag_reason : ""}`));
+      qa.appendChild(d);
+    }
+    c.appendChild(qa);
+    list.appendChild(c);
+  }
+  const screen = document.getElementById("screen");
+  screen.innerHTML = "<h3>SMS · HP NOOR</h3>";
+  [...outbox].reverse().forEach(m => screen.appendChild(el("div", m.from === "noor" ? "mine" : "sms", m.text)));
+  screen.scrollTop = screen.scrollHeight;
+}
+
+document.getElementById("refresh").addEventListener("click", load);
+document.getElementById("digest").addEventListener("click", async () => { await fetch("/api/digest?send=true"); load(); });
+document.querySelectorAll(".keys button").forEach(b => b.addEventListener("click", async () => {
+  const body = new URLSearchParams({ from: "noor", text: b.dataset.k });
+  await fetch("/sms/inbound", { method: "POST", body });
+  load();
+}));
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

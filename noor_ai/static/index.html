@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noor AI – Visitor Feedback</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F6F8EF;--mint:#E4EFD9;--mint2:#D3E6C3;--navy:#15284A;--green:#3F7A2F;--ink:#2A3445;--white:#FDFEFB;--muted:#5D6878}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif}
+  .wrap{display:flex;gap:28px;justify-content:center;align-items:flex-start;padding:24px 16px;flex-wrap:wrap}
+  .chat{width:100%;max-width:440px;height:min(820px,calc(100vh - 48px));background:var(--white);border-radius:28px;box-shadow:0 12px 40px rgba(21,40,74,.10);display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid #E6EBDD}
+  .avatar{width:44px;height:44px;border-radius:50%;background:var(--mint);display:flex;align-items:center;justify-content:center;flex:none}
+  header h1{font-size:18px;margin:0;color:var(--navy)}
+  header p{font-size:13px;margin:2px 0 0;color:var(--muted)}
+  .log{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:10px}
+  .msg{max-width:85%;padding:12px 15px;border-radius:18px;font-size:15px;line-height:1.45;white-space:pre-wrap}
+  .bot{background:var(--mint);color:var(--navy);border-bottom-left-radius:6px;align-self:flex-start}
+  .me{background:var(--navy);color:var(--white);border-bottom-right-radius:6px;align-self:flex-end}
+  .note{font-size:12px;color:var(--muted);align-self:center;text-align:center;max-width:90%}
+  .progress{height:4px;background:#E6EBDD}
+  .progress div{height:100%;width:0;background:var(--green);transition:width .3s}
+  .controls{padding:12px 14px 16px;border-top:1px solid #E6EBDD;display:flex;flex-direction:column;gap:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:2px solid var(--mint2);background:var(--white);color:var(--navy);border-radius:999px;padding:9px 14px;font:600 14px/1.2 inherit;cursor:pointer;min-height:44px}
+  .chip:hover{border-color:var(--green)}
+  .chip[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:var(--white)}
+  .row{display:flex;gap:8px}
+  .row input,.row textarea{flex:1;border:2px solid var(--mint2);border-radius:16px;padding:11px 14px;font:15px inherit;color:var(--ink);background:var(--white);resize:none}
+  .row input:focus,.row textarea:focus,.chip:focus-visible,button:focus-visible{outline:3px solid #9CC58A;outline-offset:1px}
+  .send{background:var(--green);color:var(--white);border:none;border-radius:16px;padding:0 18px;font:700 15px inherit;cursor:pointer;min-height:44px}
+  .skip{background:none;border:none;color:var(--muted);font:600 13px inherit;cursor:pointer;align-self:flex-end;padding:4px 8px;min-height:32px;text-decoration:underline}
+  .scale .chip{min-width:44px;padding:9px 0;text-align:center}
+  /* demo: Noor's phone */
+  .phone{display:none;width:300px;background:var(--navy);border-radius:40px;padding:14px;color:var(--navy)}
+  .phone.on{display:block}
+  .screen{background:#EEF2E8;border-radius:30px;min-height:560px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  .screen h2{font-size:13px;letter-spacing:.08em;margin:4px 0;color:var(--green)}
+  .sms{background:var(--white);border-radius:14px;padding:12px;font:14px/1.45 ui-monospace,Menlo,monospace;white-space:pre-wrap}
+  .meta{font-size:12px;color:var(--muted)}
+  details{font-size:13px}
+  details pre{white-space:pre-wrap;font:12px/1.5 ui-monospace,Menlo,monospace;background:var(--white);padding:10px;border-radius:12px;max-height:300px;overflow:auto}
+  @media (max-width:520px){.wrap{padding:0}.chat{height:100vh;border-radius:0;max-width:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main class="chat" aria-label="Feedback chat">
+    <header>
+      <div class="avatar" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3F7A2F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V11"/><path d="M12 11C12 7 9 4 4 4c0 5 3 7 8 7z"/><path d="M12 13c0-4 3-6 8-6 0 5-3 6-8 6z"/></svg>
+      </div>
+      <div><h1>Noor AI</h1><p>Noor's Coffee Farm · feedback</p></div>
+    </header>
+    <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <div class="controls" id="controls"></div>
+  </main>
+
+  <aside class="phone" id="phone" aria-label="Noor's phone (demo)">
+    <div class="screen">
+      <h2>SMS · NOOR'S PHONE</h2>
+      <div class="sms" id="sms">Waiting for feedback…</div>
+      <div class="meta" id="smsmeta"></div>
+      <details><summary>Full report in Bahasa Indonesia</summary><pre id="report"></pre></details>
+    </div>
+  </aside>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log = $("log"), controls = $("controls");
+const demo = new URLSearchParams(location.search).has("demo");
+if (demo) $("phone").classList.add("on");
+
+const state = { lang: "en", ui: {}, answers: {}, comments: [], guests: null, total: 1, done: 0 };
+
+function say(text, who = "bot") {
+  const d = document.createElement("div");
+  d.className = "msg " + who;
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+function note(text) { say(text, "note"); }
+function progress() { $("bar").style.width = Math.min(100, Math.round(100 * state.done / state.total)) + "%"; }
+function clear() { controls.innerHTML = ""; }
+
+function chip(label, onClick, pressed) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "chip"; b.textContent = label;
+  if (pressed !== undefined) b.setAttribute("aria-pressed", String(pressed));
+  b.addEventListener("click", onClick);
+  return b;
+}
+function skipButton(next) {
+  const s = document.createElement("button");
+  s.type = "button"; s.className = "skip"; s.textContent = state.ui.skip || "Skip";
+  s.addEventListener("click", () => { state.done++; progress(); next(); });
+  return s;
+}
+function textRow(placeholder, multiline, onSend) {
+  const row = document.createElement("div"); row.className = "row";
+  const input = document.createElement(multiline ? "textarea" : "input");
+  if (multiline) input.rows = 2; else input.type = "text";
+  input.placeholder = placeholder; input.setAttribute("aria-label", placeholder);
+  const btn = document.createElement("button");
+  btn.type = "button"; btn.className = "send"; btn.textContent = state.ui.send || "Send";
+  const go = () => { const v = input.value.trim(); if (v) onSend(v); };
+  btn.addEventListener("click", go);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); go(); } });
+  row.append(input, btn);
+  setTimeout(() => input.focus(), 50);
+  return row;
+}
+
+// Ask one question; resolve with the answer value (English option values) or null if skipped.
+function ask(q) {
+  return new Promise((resolve) => {
+    if (q.translated === "english_fallback" && !state.fallbackNoted) {
+      state.fallbackNoted = true;
+      note("Some questions are only available in English for now.");
+    }
+    say(q.question);
+    clear();
+    const answer = (value, shown) => { say(shown, "me"); state.done++; progress(); resolve(value); };
+    const t = q.type;
+    if (t === "rating_1_5" || t === "single_choice") {
+      const box = document.createElement("div"); box.className = "chips";
+      q.options.forEach((o) => box.appendChild(chip(o.label, () => answer(o.value, o.label))));
+      controls.appendChild(box);
+    } else if (t === "multiple_choice") {
+      const box = document.createElement("div"); box.className = "chips";
+      const picked = new Set();
+      q.options.forEach((o) => {
+        const c = chip(o.label, () => {
+          picked.has(o.value) ? picked.delete(o.value) : picked.add(o.value);
+          c.setAttribute("aria-pressed", String(picked.has(o.value)));
+        }, false);
+        box.appendChild(c);
+      });
+      const send = document.createElement("button");
+      send.type = "button"; send.className = "send"; send.textContent = state.ui.send || "Send";
+      send.addEventListener("click", () => {
+        if (!picked.size) return;
+        const vals = [...picked];
+        answer(vals, q.options.filter((o) => picked.has(o.value)).map((o) => o.label).join(", "));
+      });
+      controls.append(box, send);
+    } else if (t === "scale_0_10") {
+      const box = document.createElement("div"); box.className = "chips scale";
+      for (let i = 0; i <= 10; i++) box.appendChild(chip(String(i), () => answer(i, String(i))));
+      controls.appendChild(box);
+    } else if (t === "number") {
+      const row = textRow("1, 2, 3…", false, (v) => { const n = parseInt(v, 10); if (n > 0) answer(n, String(n)); });
+      row.querySelector("input").inputMode = "numeric";
+      controls.appendChild(row);
+    } else {
+      controls.appendChild(textRow(state.ui.type_ph || "…", true, (v) => answer(v, v)));
+    }
+    controls.appendChild(skipButton(() => resolve(null)));
+  });
+}
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+  if (!r.ok) throw new Error(path + " " + r.status);
+  return r.json();
+}
+
+async function chooseLanguage() {
+  const langs = await api("/api/languages");
+  say("Welcome! · Selamat datang! · Willkommen! · Bienvenue ! · ¡Bienvenido!");
+  say("Choose your language · Pilih bahasa");
+  clear();
+  const box = document.createElement("div"); box.className = "chips";
+  return new Promise((resolve) => {
+    Object.entries(langs).forEach(([code, name]) =>
+      box.appendChild(chip(name, () => { say(name, "me"); resolve(code); })));
+    controls.appendChild(box);
+  });
+}
+
+async function run() {
+  state.lang = await chooseLanguage();
+  document.documentElement.lang = state.lang;
+  const core = await api("/api/core?lang=" + encodeURIComponent(state.lang));
+  state.ui = core.ui;
+  state.total = core.questions.length + 1 + 4;
+  say(state.ui.hello);
+  note(state.ui.privacy);
+
+  for (const q of core.questions) {
+    const v = await ask(q);
+    if (v !== null) state.answers[q.id] = v;
+    if (q.id === "Q002" && v) state.guests = v;
+  }
+
+  const comment = await ask({ id: "_comment", type: "open_text", question: state.ui.comment, options: [] });
+  if (comment) state.comments.push(comment);
+
+  clear(); note("…");
+  const follow = await api("/api/follow-ups", { answers: state.answers, comments: state.comments, lang: state.lang });
+  if (follow.length) {
+    state.total = state.done + follow.length;
+    say(state.ui.followup);
+    for (const q of follow) {
+      const v = await ask(q);
+      if (v !== null) state.answers[q.id] = v;
+    }
+  }
+
+  clear(); note("…");
+  const res = await api("/api/feedback", { answers: state.answers, comments: state.comments, guests: state.guests, lang: state.lang });
+  state.done = state.total; progress();
+  say(state.ui.thanks);
+  if (demo) {
+    $("sms").textContent = res.sms;
+    $("smsmeta").textContent = `${res.sms.length} characters · ${res.sms_segments} SMS · ${res.sms_encoding}`;
+    $("report").textContent = res.report_id;
+  }
+}
+
+run().catch((e) => { clear(); say("Sorry, something went wrong. Please try again later."); console.error(e); });
+</script>
+</body>
+</html>
