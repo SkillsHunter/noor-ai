@@ -126,3 +126,13 @@ def test_noor_pages_need_login_when_password_set(monkeypatch):
         assert client.get(path, auth=("noor", "wrong")).status_code == 401
         assert client.get(path, auth=("noor", "s3cret")).status_code == 200
     assert client.post("/sms/inbound", data={"text": "1"}).status_code == 401
+
+
+def test_feedback_kept_when_sms_fails():
+    class Broken:
+        def send(self, to, text):
+            raise RuntimeError("gateway down")
+    noor = NoorAI(Settings(translator="lite", extractor="rules", sms_backend="console"), gateway=Broken())
+    r = noor.process(Submission(answers={}, comments=["The toilets were dirty."]))
+    assert r.delivery["status"] == "failed" and noor.history == [r]
+    assert "tidak ditemukan" in noor.full_text_sms(99)

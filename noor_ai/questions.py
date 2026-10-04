@@ -39,7 +39,7 @@ def score_of(value):
 
 class QuestionBank:
     def __init__(self, path: Path):
-        self.questions = [Question(**json.loads(line)) for line in Path(path).read_text().splitlines() if line.strip()]
+        self.questions = [Question(**json.loads(line)) for line in Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
         self.by_id = {q.id: q for q in self.questions}
         self.core = [q for q in self.questions if q.tier == "core"]
         # The core rating question that represents each category.

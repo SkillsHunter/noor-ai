@@ -17,12 +17,12 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 @lru_cache(maxsize=1)
 def bank_id():
-    return json.loads((DATA / "question_bank_id.json").read_text())
+    return json.loads((DATA / "question_bank_id.json").read_text(encoding="utf-8"))
 
 
 @lru_cache(maxsize=1)
 def ui_data():
-    return json.loads((DATA / "ui_i18n.json").read_text())
+    return json.loads((DATA / "ui_i18n.json").read_text(encoding="utf-8"))
 
 
 def languages():

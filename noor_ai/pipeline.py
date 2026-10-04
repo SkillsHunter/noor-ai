@@ -191,16 +191,24 @@ class NoorAI:
                      [t for t, _ in highs.most_common()], comments, rows, report,
                      [{"id": q.id, "question": q.question, "options": q.options} for q in follow_ups],
                      text, enc, segs)
+        self.history.append(res)          # keep the feedback even if the SMS fails
         if send:
-            res.delivery = self.gateway.send(self.s.noor_phone, text)
-        self.history.append(res)
+            try:
+                res.delivery = self.gateway.send(self.s.noor_phone, text)
+            except Exception as e:        # store-and-forward: Noor still sees it in the inbox
+                res.delivery = {"status": "failed", "error": e.__class__.__name__}
         return res
 
     # -- Noor asks for the full text by replying "3" ---------------------------
     def full_text_sms(self, feedback_no: int | None = None) -> str:
         if not self.history:
             return "Belum ada masukan."
-        r = next((h for h in self.history if h.feedback_no == feedback_no), self.history[-1])
+        if feedback_no is None:
+            r = self.history[-1]
+        else:
+            r = next((h for h in self.history if h.feedback_no == feedback_no), None)
+            if r is None:
+                return f"Masukan #{feedback_no} tidak ditemukan."
         parts = [f"#{r.feedback_no} teks lengkap:"]
         for c in r.comments:
             parts.append("- " + (c.indonesian or f"(asli) {c.original}"))
