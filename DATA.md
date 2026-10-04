@@ -47,3 +47,22 @@
 - **Lost or shared phone:** the SMS has a summary only, with no visitor names or contact details.
 - **Bias:** languages with less training data translate worse. That is why fixed text is hand-written and
   uncertain free text is flagged rather than trusted.
+
+## Scaling: one model, many farms
+
+Noor gets 6–7 visitors a month, so a model dedicated to one farm would sit idle almost all the time.
+The plan is **one small box at the Ondera Coffee Cooperative** running the AI for every member farm:
+
+- Each farm gets its own QR code, its own inbox and SMS to its own phone. The model is loaded once and shared.
+- The cooperative is the trusted local institution that hosts and maintains it, so costs are shared.
+- With the farms' consent, the cooperative can see anonymised patterns across farms
+  (e.g. "visitors keep asking to buy coffee") for shared products or marketing.
+- Any other cooperative or tourism association can reuse the same setup.
+
+**Trade-offs:** each farm must see only its own feedback. Farms need a signal to reach the cooperative box
+(Noor's SMS still works on a basic phone). If the box is down, every farm is affected, so feedback is
+saved before any SMS is sent.
+
+**Status:** the translation and analysis models are already shared across all requests. The app itself is
+still single-farm (one phone, one inbox). Next step: add a `farm_id` to submissions, plus a QR link,
+phone number, password and inbox per farm.

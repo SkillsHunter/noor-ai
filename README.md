@@ -6,7 +6,7 @@ translated text on request, and a complete report in her inbox. Noor AI picks th
 questions** from a 100-question bank and **flags** anything it is unsure about instead of guessing.
 Every model is open and can run on your own server.
 
-📄 **Overview deck:** [How Noor AI Works (PDF)](docs/How-Noor-AI-Works.pdf) · **Data, Small AI fit and Responsible AI:** [DATA.md](DATA.md)
+📄 **Overview deck:** [How Noor AI Works (PDF)](docs/How-Noor-AI-Works.pdf) · **Data, Small AI fit, Responsible AI and scaling to many farms:** [DATA.md](DATA.md)
 
 ```
 Visitor chat (any language)
