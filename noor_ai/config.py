@@ -26,6 +26,11 @@ class Settings:
     ollama_url: str = field(default_factory=lambda: os.getenv("OLLAMA_URL", "http://localhost:11434"))
     ollama_model: str = field(default_factory=lambda: os.getenv("NOOR_OLLAMA_MODEL", "qwen2.5:3b"))
 
+    # Abuse limits: per-visit SMS to Noor per hour (later ones wait in the inbox),
+    # and how many submissions are kept in memory.
+    sms_per_hour: int = field(default_factory=lambda: int(os.getenv("NOOR_SMS_PER_HOUR", "20")))
+    history_max: int = field(default_factory=lambda: int(os.getenv("NOOR_HISTORY_MAX", "5000")))
+
     # Below this confidence a reply is flagged for Noor instead of being interpreted.
     confidence_threshold: float = float(os.getenv("NOOR_CONFIDENCE_THRESHOLD", "0.6"))
     max_follow_ups: int = int(os.getenv("NOOR_MAX_FOLLOW_UPS", "6"))

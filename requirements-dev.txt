@@ -1,0 +1,4 @@
+# Lite mode plus test tools. For full mode use: pip install -r requirements.txt -r requirements-dev.txt
+-r requirements-lite.txt
+pytest>=8
+httpx>=0.27

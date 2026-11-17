@@ -62,13 +62,13 @@ Balas 1=ya 2=nanti
 | SMS | `noor_ai/sms_compose.py`, `noor_ai/sms_gateway.py` | One-segment summary; Twilio, Africa's Talking or console |
 | Weekly / monthly summaries | `noor_ai/summary.py` | Cross-visitor trends, fixed-list suggestions, Noor's decisions |
 | Evaluation | `eval.py`, `data/eval/comments.jsonl` | 42 labelled synthetic comments; see `DATA.md` |
-| API | `noor_ai/app.py` | FastAPI, docs at `/docs` |
+| API | `noor_ai/app.py` | FastAPI, docs at `/docs` (with `NOOR_DEV=1` or `NOOR_DOCS=1`) |
 
 ## Try it (lite mode, no model downloads)
 
 ```bash
-pip install lingua-language-detector requests fastapi uvicorn pydantic python-multipart pytest httpx
-uvicorn noor_ai.app:app --reload
+pip install -r requirements-dev.txt
+NOOR_DEV=1 uvicorn noor_ai.app:app --reload   # NOOR_DEV=1 opens Noor's side without a password, locally only
 ```
 
 - Visitor chat: http://localhost:8000. Add `?demo=1` to see Noor's phone beside the chat.
@@ -89,6 +89,20 @@ English for de/fr/es visitors, with a note. Full mode removes both limits.
 `render.yaml` sets up a free Render web service in lite mode. Noor's side (`/noor`, the feedback
 API, the SMS webhook) is behind a login: user `noor`, with a password Render generates
 (service → **Environment** → `NOOR_ADMIN_PASSWORD`). The visitor chat at `/` stays public.
+
+Security settings (all optional except the password):
+
+| Variable | Default | What it does |
+|---|---|---|
+| `NOOR_ADMIN_PASSWORD` | unset | Login for Noor's side. **Without it Noor's side is closed (503)** unless `NOOR_DEV=1`. |
+| `NOOR_WEBHOOK_TOKEN` | unset | Secret for a real SMS gateway: point it at `https://your-host/sms/inbound?token=<token>`. Only replies from `NOOR_PHONE` are accepted. Don't put the admin password in the gateway URL. |
+| `NOOR_SMS_PER_HOUR` | 20 | Cap on per-visit SMS to Noor; further feedback still reaches the inbox. |
+| `NOOR_RATE_FEEDBACK` / `NOOR_RATE_FOLLOW_UPS` | 10 / 60 | Requests per minute per client IP on the public form endpoints. |
+| `NOOR_LOG_SMS` | unset | `1` prints SMS text to the console. Off by default so visitor comments stay out of host logs. |
+| `NOOR_DOCS` | unset | `1` serves `/docs` and `/openapi.json` (always on with `NOOR_DEV=1`). |
+
+Scripts that call Noor's actions (`/api/summary?send=true`, `/api/digest?send=true`,
+`/api/demo/seed`) must send the header `X-Noor-Action: 1` along with the login.
 
 Free-tier limits: the service sleeps after 15 minutes idle (first visit then takes ~1 minute), and
 feedback is kept in memory, so it is lost on every restart or redeploy.
@@ -124,7 +138,9 @@ at a farm's volume. If a model is unavailable, the pipeline falls back and flags
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |  | Twilio credentials |
 | `AT_USERNAME`, `AT_API_KEY`, `AT_SENDER_ID` | `sandbox` | Africa's Talking credentials |
 
-Set your gateway's incoming-SMS webhook to `POST /sms/inbound` so Noor's replies reach the app.
+Set your gateway's incoming-SMS webhook to `POST /sms/inbound?token=<NOOR_WEBHOOK_TOKEN>` so Noor's
+replies reach the app. Quoted visitor comments are cut to 140 characters each, with links removed, so
+nobody can send Noor a phishing link from the farm's own number.
 
 ## What Noor receives
 
@@ -137,7 +153,7 @@ Balas 1=dibaca 2=telepon 3=teks lengkap
 ```
 **She replies "3", and gets:**
 ```
-#1 teks lengkap:
+#1 kutipan tamu (bukan pesan tim, jangan buka tautan):
 - Kebunnya luar biasa, tetapi pintu masuknya sulit ditemukan.
 - Kami ingin membeli kopi, tetapi tidak ada yang dijual.
 ```
@@ -157,5 +173,5 @@ kebun? 2 - Buruk*), the visitor's comments translated, and a list of anything fl
 - Have someone who reads Bahasa Indonesia check NLLB's output on real visitor comments.
 - Store submissions in a database; this prototype keeps them in memory.
 - Set `NOOR_ADMIN_PASSWORD` so `/noor` and the feedback API need a login (on by default with `render.yaml`).
-- Remove names and phone numbers from comments before logging.
+- Phone numbers and e-mail addresses in comments are already redacted before storing; names are not.
 - Use a local Indonesian SMS aggregator if it is cheaper than Twilio for numbers in Indonesia.

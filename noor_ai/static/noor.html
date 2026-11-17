@@ -137,19 +137,21 @@ async function loadDecisions() {
   if (pending) box.appendChild(el("p", "note", `Menunggu jawaban: ${pending.text_id} (balas 1=ya 2=nanti)`));
   decisions.forEach(d => box.appendChild(el("p", "", `${d.date}: ${d.text_id} → ${d.decision === "yes" ? "YA" : "NANTI"}`)));
 }
+// Actions that send SMS or change data carry this header, which other websites cannot add (CSRF guard).
+const ACTION = { "X-Noor-Action": "1" };
 document.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", async () => {
-  const r = await fetch(`/api/summary?period=${b.dataset.period}&send=true`);
+  const r = await fetch(`/api/summary?period=${b.dataset.period}&send=true`, { headers: ACTION });
   if (r.ok) showSummary(await r.json());
   load();
 }));
 document.getElementById("seed").addEventListener("click", async () => {
-  const r = await fetch("/api/demo/seed", { method: "POST" });
+  const r = await fetch("/api/demo/seed", { method: "POST", headers: ACTION });
   if (!r.ok) alert("Data contoh tidak aktif di server ini (NOOR_DEMO=1).");
   load();
 });
 document.querySelectorAll(".keys button").forEach(b => b.addEventListener("click", async () => {
   const body = new URLSearchParams({ from: "noor", text: b.dataset.k });
-  await fetch("/sms/inbound", { method: "POST", body });
+  await fetch("/sms/inbound", { method: "POST", body, headers: ACTION });
   load();
 }));
 load();
