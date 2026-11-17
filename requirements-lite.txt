@@ -1,7 +1,9 @@
 # Lite mode for hosting (no model downloads): used by render.yaml
+# Floors exclude releases with known security fixes (requests CVE-2024-35195 / CVE-2024-47081,
+# python-multipart DoS fixed in 0.0.18, older Starlette via FastAPI).
 lingua-language-detector>=2.0
-requests>=2.31
-fastapi>=0.110
-uvicorn>=0.29
-pydantic>=2.6
-python-multipart>=0.0.9
+requests>=2.32.4
+fastapi>=0.115.3
+uvicorn>=0.30
+pydantic>=2.7
+python-multipart>=0.0.18
