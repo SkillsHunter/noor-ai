@@ -7,6 +7,8 @@ Gateways share `send(to, text) -> dict`. Pick one with NOOR_SMS:
 For Indonesia or elsewhere, a local SMS aggregator usually costs less; add a
 class with the same `send` method.
 """
+import os
+
 import requests
 
 from .config import Settings
@@ -18,7 +20,12 @@ class ConsoleGateway:
 
     def send(self, to: str, text: str) -> dict:
         self.outbox.append({"to": to, "text": text})
-        print(f"\n--- SMS to {to} ---\n{text}\n-------------------")
+        # SMS bodies quote visitors; on a host they would land in the logs. Print them only
+        # when asked (NOOR_LOG_SMS=1, e.g. local demos); otherwise log the length only.
+        if os.getenv("NOOR_LOG_SMS") == "1":
+            print(f"\n--- SMS to {to} ---\n{text}\n-------------------")
+        else:
+            print(f"SMS to Noor: {len(text)} chars (set NOOR_LOG_SMS=1 to print the text)")
         return {"status": "printed", "to": to}
 
 

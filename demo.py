@@ -3,6 +3,10 @@
     python demo.py            # lite mode: no model downloads
     NOOR_TRANSLATOR=nllb NOOR_EXTRACTOR=ollama python demo.py   # full small-AI mode
 """
+import os
+
+os.environ.setdefault("NOOR_LOG_SMS", "1")   # this demo exists to show the SMS text
+
 from noor_ai import NoorAI, Submission
 
 VISITORS = [
