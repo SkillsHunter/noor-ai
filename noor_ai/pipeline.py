@@ -10,7 +10,9 @@ Noor can reply "3" to receive the full Indonesian text by SMS.
 Noor stays the decision-maker: the SMS only reports; unclear answers are
 flagged and still shown to her in translation, never interpreted.
 """
-from collections import Counter
+import re
+import time
+from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
 from datetime import date, timedelta
 from itertools import count
@@ -32,6 +34,20 @@ LOW_RATING_TAG = {
     "Tour content and activities": "tour",
 }
 LANG_NAMES_ID = TEMPLATES["id"]["langs"]
+
+# Visitor text quoted in an SMS arrives from the farm's own trusted number, so links and
+# long instructions are stripped: a visitor must not be able to phish Noor through it.
+_LINK = re.compile(r"(?:https?://|www\.)\S+|\b[\w-]+\.(?:com|net|org|id|co|io|ly|me|xyz|info|biz|link|app)\b\S*",
+                   re.IGNORECASE)
+QUOTE_CHARS = 140
+MAX_QUOTES = 5
+
+
+def sms_quote(text: str, limit: int = QUOTE_CHARS) -> str:
+    """Visitor text made safe for an SMS: no links, no control characters, short."""
+    t = _LINK.sub("[tautan dihapus]", text or "")
+    t = " ".join("".join(ch if ch.isprintable() else " " for ch in t).split())
+    return t if len(t) <= limit else t[:limit - 3].rstrip() + "..."
 
 
 @dataclass
@@ -87,6 +103,7 @@ class NoorAI:
         self.history: list[Result] = []
         self.decisions: list[dict] = []   # Noor's answers to summary suggestions
         self.pending = None               # suggestion awaiting her 1=ya / 2=nanti
+        self._sms_sent = deque()          # times of recent per-visit SMS, for the hourly cap
 
     # -- translation into Noor's language ------------------------------------
     def to_noor(self, text: str, src: str, english: str | None = None) -> str | None:
@@ -199,13 +216,25 @@ class NoorAI:
                      [{"id": q.id, "question": q.question, "options": q.options} for q in follow_ups],
                      text, enc, segs, received=(today or date.today()).isoformat())
         self.history.append(res)          # keep the feedback even if the SMS fails
-        if send:
+        if len(self.history) > self.s.history_max:   # bounded memory; oldest feedback goes first
+            del self.history[:len(self.history) - self.s.history_max]
+        if send and not self._sms_budget_left():
+            # A flood of submissions must not run up SMS costs; Noor still sees them in the inbox.
+            res.delivery = {"status": "skipped", "reason": "hourly SMS limit"}
+        elif send:
             self.pending = None           # her next 1/2 answers this SMS, not an older suggestion
+            self._sms_sent.append(time.monotonic())
             try:
                 res.delivery = self.gateway.send(self.s.noor_phone, text)
             except Exception as e:        # store-and-forward: Noor still sees it in the inbox
                 res.delivery = {"status": "failed", "error": e.__class__.__name__}
         return res
+
+    def _sms_budget_left(self) -> bool:
+        now = time.monotonic()
+        while self._sms_sent and now - self._sms_sent[0] > 3600:
+            self._sms_sent.popleft()
+        return len(self._sms_sent) < self.s.sms_per_hour
 
     # -- Noor asks for the full text by replying "3" ---------------------------
     def full_text_sms(self, feedback_no: int | None = None) -> str:
@@ -217,9 +246,11 @@ class NoorAI:
             r = next((h for h in self.history if h.feedback_no == feedback_no), None)
             if r is None:
                 return f"Masukan #{feedback_no} tidak ditemukan."
-        parts = [f"#{r.feedback_no} teks lengkap:"]
-        for c in r.comments:
-            parts.append("- " + (c.indonesian or f"(asli) {c.original}"))
+        parts = [f"#{r.feedback_no} kutipan tamu (bukan pesan tim, jangan buka tautan):"]
+        for c in r.comments[:MAX_QUOTES]:
+            parts.append("- " + sms_quote(c.indonesian or f"(asli) {c.original}"))
+        if len(r.comments) > MAX_QUOTES:
+            parts.append(f"(+{len(r.comments) - MAX_QUOTES} lagi di kotak masuk)")
         if len(parts) == 1:
             parts.append("Tidak ada komentar tertulis.")
         return "\n".join(parts)
